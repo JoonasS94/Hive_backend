@@ -4,29 +4,29 @@ from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPost
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'  # Serialize all fields
+        fields = ['id', 'email', 'username', 'password', 'bio', 'registered']
 
 class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
-        fields = '__all__'
+        fields = ['id', 'text', 'time', 'user', 'hashtags', 'references']
 
 class HashtagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hashtag
-        fields = '__all__'
+        fields = ['id', 'name']
 
 class LikedUsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikedUsers
-        fields = '__all__'
+        fields = ['liker', 'liked_user']
 
 class FollowedHashtagsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FollowedHashtags
-        fields = '__all__'
+        fields = ['user', 'hashtag']
 
 class LikedPostsSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikedPosts
-        fields = '__all__'
+        fields = ['user', 'post']
