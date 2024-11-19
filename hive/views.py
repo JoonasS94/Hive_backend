@@ -19,7 +19,6 @@ class UserViewSet(viewsets.ModelViewSet):
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')  # All posts, ordered by time (newest first)
     serializer_class = PostSerializer  # Use the Post serializer
-    filter_backends = [DjangoFilterBackend]  # Enable filtering
     filterset_fields = ['hashtags']  # Allow filtering by hashtags
 
     # Custom action for filtering by multiple hashtags
