@@ -24,8 +24,9 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
     queryset = LikedUsers.objects.all()  # All liked users
     serializer_class = LikedUsersSerializer  # Use the LikedUsers serializer
 
-    @action(detail=False, methods=['get'], url_path='count-likes')
     # Functionality for http://127.0.0.1:8000/liked-users/count-likes/?user_id=X
+    # Get to know how many users you liked.
+    @action(detail=False, methods=['get'], url_path='count-likes')
     def count_likes(self, request):
         # Get the user_id from query parameters
         user_id = request.query_params.get('user_id', None)
@@ -41,6 +42,25 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
         # Count how many users the specified user has liked
         liked_count = LikedUsers.objects.filter(liker=user_id).count()
         return Response({'user_id': user_id, 'liked_count': liked_count})
+
+    # Functionality for http://127.0.0.1:8000/liked-users/count-liked-by/?user_id=X
+    # Get to know how many users likes you.
+    @action(detail=False, methods=['get'], url_path='count-liked-by')
+    def count_liked_by(self, request):
+        # Get the user_id from query parameters
+        user_id = request.query_params.get('user_id', None)
+        if user_id is None:
+            return Response({'error': 'user_id parameter is required.'}, status=400)
+        
+        # Validate user_id as an integer
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            return Response({'error': 'user_id must be a valid integer.'}, status=400)
+        
+        # Count how many users have liked the specified user
+        liked_by_count = LikedUsers.objects.filter(liked_user=user_id).count()
+        return Response({'user_id': user_id, 'liked_by_count': liked_by_count})
 
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
     queryset = FollowedHashtags.objects.all()  # All followed hashtags
