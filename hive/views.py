@@ -1,6 +1,9 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+# For AND, OR etc. query searches
+from django.db.models import Q
 from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
@@ -15,6 +18,24 @@ class UserViewSet(viewsets.ModelViewSet):
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')  # All posts, ordered by time (newest first)
     serializer_class = PostSerializer  # Use the Post serializer
+    filter_backends = [DjangoFilterBackend]  # Enable filtering
+    filterset_fields = ['hashtags']  # Allow filtering by hashtags
+
+    # Custom action for filtering by multiple hashtags
+    @action(detail=False, methods=['get'], url_path='filter-by-hashtags')
+    def filter_by_hashtags(self, request):
+        hashtags = request.query_params.getlist('hashtags')  # Ota vastaan useita häshtägejä listana
+        if not hashtags:
+            return Response({'error': 'Please provide at least one hashtag id.'}, status=400)
+
+        # Sort for multiple queries
+        posts = self.queryset.filter(
+            Q(hashtags__id__in=hashtags)
+        ).distinct()  # distinct estää duplikaattipostaukset
+
+        # Serialize and return answer
+        serializer = self.get_serializer(posts, many=True)
+        return Response(serializer.data)
 
 class HashtagViewSet(viewsets.ModelViewSet):
     queryset = Hashtag.objects.all()  # All hashtags
