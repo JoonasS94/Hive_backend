@@ -1,13 +1,11 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
     LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer
 )
-from django.db.models import Q  # Tarvitaan monimutkaisempia kyselyitä varten
 
 # Create viewsets for each model
 class UserViewSet(viewsets.ModelViewSet):
@@ -17,34 +15,6 @@ class UserViewSet(viewsets.ModelViewSet):
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')  # All posts, ordered by time (newest first)
     serializer_class = PostSerializer  # Use the Post serializer
-    
-    # Enable filtering using DjangoFilterBackend
-    filter_backends = [DjangoFilterBackend]
-    
-    # Suodatus 'hashtags' id:n perusteella
-    filterset_fields = ['hashtags__id']  # Filter posts by the hashtag id
-
-    # Custom action for filtering posts by multiple hashtags
-    @action(detail=False, methods=['get'], url_path='filter-by-hashtags')
-    def filter_by_hashtags(self, request):
-        # Get the 'hashtags' query parameter (a list of hashtag IDs)
-        hashtag_ids = request.query_params.getlist('hashtags', None)
-        
-        if not hashtag_ids:
-            return Response({'error': 'At least one hashtag ID is required.'}, status=400)
-        
-        # Try to convert hashtag_ids to integers
-        try:
-            hashtag_ids = [int(id) for id in hashtag_ids]
-        except ValueError:
-            return Response({'error': 'Each hashtag ID must be a valid integer.'}, status=400)
-        
-        # Query posts that match any of the provided hashtag IDs
-        posts = Post.objects.filter(hashtags__id__in=hashtag_ids).distinct()
-        
-        # Serialize and return the filtered posts
-        serializer = self.get_serializer(posts, many=True)
-        return Response(serializer.data)
 
 class HashtagViewSet(viewsets.ModelViewSet):
     queryset = Hashtag.objects.all()  # All hashtags

@@ -41,8 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_yasg',
-    'django_filters',
 ]
+
 
 MIDDLEWARE = [
     # CORS
@@ -61,7 +61,7 @@ ROOT_URLCONF = 'hive.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # Ei tarvitse HTML-lomakkeita, koska käytämme API:ta
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -133,13 +133,3 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # Frontendin osoite
     "http://127.0.0.1:3000", # Vaihtoehtoinen localhost-osoite
 ]
-
-# REST Framework Settings to avoid rendering HTML forms
-REST_FRAMEWORK = {
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',  # Käytetään vain JSON-vastausta
-    ),
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # Oletuksena kaikille avoin käyttöoikeus
-    ],
-}
