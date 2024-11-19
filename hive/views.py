@@ -11,7 +11,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer  # Use the User serializer
 
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all()  # All posts
+    queryset = Post.objects.all().order_by('-time')  # Sorted by publication date, newest first.
     serializer_class = PostSerializer  # Use the Post serializer
 
 class HashtagViewSet(viewsets.ModelViewSet):
