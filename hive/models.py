@@ -12,7 +12,7 @@ class User(models.Model):
 
 
 class Hashtag(models.Model):
-    name = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=20, unique=False)
 
     def __str__(self):
         return self.name
