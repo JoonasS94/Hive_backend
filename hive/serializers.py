@@ -62,7 +62,8 @@ class PostSerializer(serializers.ModelSerializer):
 
         # Lisää hashtagit
         for hashtag_data in hashtags_data:
-            hashtag, created = Hashtag.objects.get_or_create(**hashtag_data)
+            # Hae olemassa oleva hashtagi tai luo uusi
+            hashtag, created = Hashtag.objects.get_or_create(name=hashtag_data['name'])
             post.hashtags.add(hashtag)
 
         # Lisää viittaukset
@@ -81,7 +82,8 @@ class PostSerializer(serializers.ModelSerializer):
         if hashtags_data is not None:
             instance.hashtags.clear()
             for hashtag_data in hashtags_data:
-                hashtag, created = Hashtag.objects.get_or_create(**hashtag_data)
+                # Hae olemassa oleva hashtagi tai luo uusi
+                hashtag, created = Hashtag.objects.get_or_create(name=hashtag_data['name'])
                 instance.hashtags.add(hashtag)
 
         # Päivitä viittaukset
