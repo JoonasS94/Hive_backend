@@ -7,15 +7,37 @@ from .serializers import (
     LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer
 )
 
-# User ViewSet
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ModelViewSet
+
+# Create viewsets for each model
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+    queryset = User.objects.all()  # All users
+    serializer_class = UserSerializer  # Use the User serializer
+    permission_classes = [IsAuthenticated] # Require JWT Authentication
 
 # Post ViewSet
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all().order_by('-time')  # Posts ordered by time
-    serializer_class = PostSerializer
+    queryset = Post.objects.all().order_by('-time')  # All posts, ordered by time (newest first)
+    serializer_class = PostSerializer  # Use the Post serializer
+    filterset_fields = ['hashtags']  # Allow filtering by hashtags
+
+    # Custom action for filtering by multiple hashtags
+    @action(detail=False, methods=['get'], url_path='filter-by-hashtags')
+    def filter_by_hashtags(self, request):
+        hashtags = request.query_params.getlist('hashtags')  # Ota vastaan useita häshtägejä listana
+        if not hashtags:
+            return Response({'error': 'Please provide at least one hashtag id.'}, status=400)
+
+        # Sort for multiple queries
+        posts = self.queryset.filter(
+            Q(hashtags__id__in=hashtags)
+        ).distinct()  # distinct estää duplikaattipostaukset
+
+        # Serialize and return answer
+        serializer = self.get_serializer(posts, many=True)
+        return Response(serializer.data)
 
     # Functionality for fetching posts with a specific hashtag
     @action(detail=False, methods=['get'], url_path='with-hashtag')
@@ -39,13 +61,15 @@ class PostViewSet(viewsets.ModelViewSet):
 
 # Hashtag ViewSet
 class HashtagViewSet(viewsets.ModelViewSet):
-    queryset = Hashtag.objects.all()
-    serializer_class = HashtagSerializer
+    queryset = Hashtag.objects.all()  # All hashtags
+    serializer_class = HashtagSerializer  # Use the Hashtag serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
 # LikedUsers ViewSet
 class LikedUsersViewSet(viewsets.ModelViewSet):
-    queryset = LikedUsers.objects.all()
-    serializer_class = LikedUsersSerializer
+    queryset = LikedUsers.objects.all()  # All liked users
+    serializer_class = LikedUsersSerializer  # Use the LikedUsers serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
     # Count how many users you liked
     @action(detail=False, methods=['get'], url_path='count-likes')
@@ -79,10 +103,12 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
 
 # FollowedHashtags ViewSet
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
-    queryset = FollowedHashtags.objects.all()
-    serializer_class = FollowedHashtagsSerializer
+    queryset = FollowedHashtags.objects.all()  # All followed hashtags
+    serializer_class = FollowedHashtagsSerializer  # Use the FollowedHashtags serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
 # LikedPosts ViewSet
 class LikedPostsViewSet(viewsets.ModelViewSet):
-    queryset = LikedPosts.objects.all()
-    serializer_class = LikedPostsSerializer
+    queryset = LikedPosts.objects.all()  # All liked posts
+    serializer_class = LikedPostsSerializer  # Use the LikedPosts serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
