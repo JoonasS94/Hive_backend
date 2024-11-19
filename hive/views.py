@@ -1,9 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-# For AND, OR etc. query searches
-from django.db.models import Q
 from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
@@ -24,7 +21,6 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer  # Use the Post serializer
     filter_backends = [DjangoFilterBackend]  # Enable filtering
     filterset_fields = ['hashtags']  # Allow filtering by hashtags
-    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
     # Custom action for filtering by multiple hashtags
     @action(detail=False, methods=['get'], url_path='filter-by-hashtags')
