@@ -10,16 +10,21 @@ from .serializers import (
     LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer
 )
 
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ModelViewSet
+
 # Create viewsets for each model
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()  # All users
     serializer_class = UserSerializer  # Use the User serializer
+    permission_classes = [IsAuthenticated] # Require JWT Authentication
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')  # All posts, ordered by time (newest first)
     serializer_class = PostSerializer  # Use the Post serializer
     filter_backends = [DjangoFilterBackend]  # Enable filtering
     filterset_fields = ['hashtags']  # Allow filtering by hashtags
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
     # Custom action for filtering by multiple hashtags
     @action(detail=False, methods=['get'], url_path='filter-by-hashtags')
@@ -40,10 +45,12 @@ class PostViewSet(viewsets.ModelViewSet):
 class HashtagViewSet(viewsets.ModelViewSet):
     queryset = Hashtag.objects.all()  # All hashtags
     serializer_class = HashtagSerializer  # Use the Hashtag serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
 class LikedUsersViewSet(viewsets.ModelViewSet):
     queryset = LikedUsers.objects.all()  # All liked users
     serializer_class = LikedUsersSerializer  # Use the LikedUsers serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
     # Functionality for http://127.0.0.1:8000/liked-users/count-likes/?user_id=X
     # Get to know how many users you liked.
@@ -86,7 +93,9 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
     queryset = FollowedHashtags.objects.all()  # All followed hashtags
     serializer_class = FollowedHashtagsSerializer  # Use the FollowedHashtags serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
 
 class LikedPostsViewSet(viewsets.ModelViewSet):
     queryset = LikedPosts.objects.all()  # All liked posts
     serializer_class = LikedPostsSerializer  # Use the LikedPosts serializer
+    permission_classes = [IsAuthenticated]  # Require JWT Authentication
