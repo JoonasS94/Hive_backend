@@ -3,7 +3,7 @@
 import os
 import sys
 
-# Devbug, no need to remain at the end of project.
+# Debug, no needed at the end of project.
 #print("DJANGO_SETTINGS_MODULE:", os.environ.get('DJANGO_SETTINGS_MODULE'))
 
 def main():
