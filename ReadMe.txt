@@ -4,12 +4,6 @@ Joona, frontend.
 Pekka, backend.
 Joonas, backend.
 
-Siru, frontend.
-Joona, frontend.
-
-Pekka, backend.
-Joonas, backend.
-
 Miten pyöritetään serveriä:
 Asennetaan ensin venv.
 1. Avaa cmd kansiossa GitHub\Hive_backend
