@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+#uutta
 
 class User(models.Model):
     email = models.EmailField(max_length=64)

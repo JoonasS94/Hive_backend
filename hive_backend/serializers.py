@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
+#uuta
 
 # HashtagSerializer
 class HashtagSerializer(serializers.ModelSerializer):
