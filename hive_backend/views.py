@@ -52,6 +52,19 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
     serializer_class = FollowedHashtagsSerializer
     permission_classes = [IsAuthenticated]
 
+    def retrieve(self, request, *args, **kwargs):
+        # Hae käyttäjä
+        user = self.get_object().user
+
+        # Laske, kuinka monta hashtagiä käyttäjä seuraa
+        followed_hashtags_count = FollowedHashtags.objects.filter(user=user).count()
+
+        # Palauta vastaus, joka sisältää seuraamien hashtagien määrän
+        return Response({
+            'user': user.id,
+            'amount_of_followed_hashtags': followed_hashtags_count
+        })
+
 # LikedPosts ViewSet
 class LikedPostsViewSet(viewsets.ModelViewSet):
     queryset = LikedPosts.objects.all()

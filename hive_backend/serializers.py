@@ -7,22 +7,33 @@ class HashtagSerializer(serializers.ModelSerializer):
         model = Hashtag
         fields = ['id', 'name']  # Palautetaan sekä ID että nimi
 
-# UserSerializer
 class UserSerializer(serializers.ModelSerializer):
-    amount_of_liked_users = serializers.SerializerMethodField()  # Kuinka monesta käyttäjästä tämä/ minä käyttäjä on tykännyt
-    amount_of_me_liked_users = serializers.SerializerMethodField()  # Kuinka moni käyttäjä on tykännyt tästä/ minun käyttäjästä
+    amount_of_liked_users = serializers.SerializerMethodField()
+    amount_of_me_liked_users = serializers.SerializerMethodField()
+    amount_of_followed_hashtags = serializers.SerializerMethodField()  # Lisätty kenttä
+    id_and_name_of_followed_hashtags = serializers.SerializerMethodField()  # Uusi kenttä
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'password', 'bio', 'amount_of_liked_users', 'amount_of_me_liked_users']
+        fields = [
+            'id', 'email', 'username', 'password', 'bio',
+            'amount_of_liked_users', 'amount_of_me_liked_users',
+            'amount_of_followed_hashtags', 'id_and_name_of_followed_hashtags'
+        ]
 
     def get_amount_of_liked_users(self, obj):
-        # Lasketaan kuinka monta käyttäjää käyttäjä on tykännyt
         return LikedUsers.objects.filter(liker=obj).count()
 
     def get_amount_of_me_liked_users(self, obj):
-        # Lasketaan kuinka moni käyttäjä on tykännyt tästä käyttäjästä
         return LikedUsers.objects.filter(liked_user=obj).count()
+
+    def get_amount_of_followed_hashtags(self, obj):
+        return FollowedHashtags.objects.filter(user=obj).values('hashtag').distinct().count()
+
+    def get_id_and_name_of_followed_hashtags(self, obj):
+        followed_hashtags = FollowedHashtags.objects.filter(user=obj).select_related('hashtag')
+        return [{"id": hashtag.hashtag.id, "name": hashtag.hashtag.name} for hashtag in followed_hashtags]
+
 
 # PostSerializer
 class PostSerializer(serializers.ModelSerializer):
