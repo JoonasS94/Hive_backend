@@ -1,16 +1,14 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
+from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
     LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer
 )
-from rest_framework.permissions import IsAuthenticated
 
 # User ViewSet
-
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -32,6 +30,21 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
     queryset = LikedUsers.objects.all()
     serializer_class = LikedUsersSerializer
     permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        # Tarkistetaan, onko suhde jo olemassa
+        liker = request.data.get('liker')
+        liked_user = request.data.get('liked_user')
+
+        if LikedUsers.objects.filter(liker_id=liker, liked_user_id=liked_user).exists():
+            # Jos merkintä on jo olemassa, palautetaan 200-koodinen vastaus
+            return Response(
+                {"detail": "You already like this user."},
+                status=status.HTTP_200_OK
+            )
+        
+        # Jos merkintää ei ole, jatketaan normaalisti
+        return super().create(request, *args, **kwargs)
 
 # FollowedHashtags ViewSet
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
