@@ -1,61 +1,64 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import User, Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
+from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
+from django.contrib.auth.hashers import make_password
+
+User = get_user_model()
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'username', 'password', 'bio']  # Include desired fields
+        extra_kwargs = {
+            'password': {'write_only': True},  # Ensure the password is write-only
+        }
+
+    def validate_password(self, value):
+        # You can add custom password validation here
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        return make_password(value)  # Hash the password
+
+# Retrieve the custom User model
+User = get_user_model()
 
 # HashtagSerializer
 class HashtagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hashtag
-        fields = ['id', 'name']  # Palautetaan sekä ID että nimi
+        fields = ['id', 'name']  # Returns both ID and name
 
+# UserSerializer
 class UserSerializer(serializers.ModelSerializer):
-    amount_of_liked_users = serializers.SerializerMethodField()
-    amount_of_me_liked_users = serializers.SerializerMethodField()
-    amount_of_followed_hashtags = serializers.SerializerMethodField()  # Lisätty kenttä
-    id_and_name_of_followed_hashtags = serializers.SerializerMethodField()  # Uusi kenttä
+    amount_of_liked_users = serializers.SerializerMethodField()  # Number of users this user has liked
+    amount_of_me_liked_users = serializers.SerializerMethodField()  # Number of users who have liked this user
 
     class Meta:
         model = User
-        fields = [
-            'id', 'email', 'username', 'password', 'bio',
-            'amount_of_liked_users', 'amount_of_me_liked_users',
-            'amount_of_followed_hashtags', 'id_and_name_of_followed_hashtags'
-        ]
+        fields = ['id', 'email', 'username', 'bio', 'amount_of_liked_users', 'amount_of_me_liked_users']
 
     def get_amount_of_liked_users(self, obj):
+        # Count the number of users liked by this user
         return LikedUsers.objects.filter(liker=obj).count()
 
     def get_amount_of_me_liked_users(self, obj):
+        # Count the number of users who have liked this user
         return LikedUsers.objects.filter(liked_user=obj).count()
-
-    def get_amount_of_followed_hashtags(self, obj):
-        return FollowedHashtags.objects.filter(user=obj).values('hashtag').distinct().count()
-
-    def get_id_and_name_of_followed_hashtags(self, obj):
-        followed_hashtags = FollowedHashtags.objects.filter(user=obj).select_related('hashtag')
-        return [{"id": hashtag.hashtag.id, "name": hashtag.hashtag.name} for hashtag in followed_hashtags]
-
 
 # PostSerializer
 class PostSerializer(serializers.ModelSerializer):
-    hashtags = HashtagSerializer(many=True)  # Käytetään nested-hashtag serializeriä
-    references = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), many=True, required=False)  # Viittaukset käyttäjä-ID:llä
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)  # Lisää käyttäjäkenttä POST-pyyntöön
+    hashtags = HashtagSerializer(many=True)  # Nested Hashtag serializer
+    references = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), many=True, required=False)  # References by user ID
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)  # User field for POST requests
 
     class Meta:
         model = Post
         fields = ['id', 'text', 'time', 'user', 'hashtags', 'references']
 
-    def get_user(self, obj):
-        """Palauttaa käyttäjän id:n ja nimen"""
-        return {
-            "id": obj.user.id,
-            "username": obj.user.username
-        }
-
     def to_representation(self, instance):
-        """Mukautettu GET-vastaus"""
+        """Custom GET response"""
         representation = super().to_representation(instance)
-        # Muodostetaan viittaukset käyttäjien ID:n ja nimien perusteella
+        # Build references based on user IDs and usernames
         representation['references'] = [
             {
                 "id": user.id,
@@ -63,7 +66,7 @@ class PostSerializer(serializers.ModelSerializer):
             }
             for user in instance.references.all()
         ]
-        # Muodostetaan käyttäjän tiedot
+        # Include user details
         representation['user'] = {
             "id": instance.user.id,
             "username": instance.user.username
@@ -73,22 +76,17 @@ class PostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         hashtags_data = validated_data.pop('hashtags', [])
         references_data = validated_data.pop('references', [])
-        user = validated_data.pop('user', None)  # Käyttäjän määrittäminen POSTissa (voi olla myös kirjautunut käyttäjä)
-        
-        # Jos user ei ole mukana, käytetään kirjautunutta käyttäjää
-        if not user:
-            user = self.context['request'].user
-        
-        # Luodaan postaus
+        user = self.context['request'].user  # Automatically set the current user
+
+        # Create the post
         post = Post.objects.create(user=user, **validated_data)
 
-        # Lisää hashtagit
+        # Add hashtags
         for hashtag_data in hashtags_data:
-            # Hae olemassa oleva hashtagi tai luo uusi
             hashtag, created = Hashtag.objects.get_or_create(name=hashtag_data['name'])
             post.hashtags.add(hashtag)
 
-        # Lisää viittaukset
+        # Set references
         post.references.set(references_data)
         return post
 
@@ -96,19 +94,18 @@ class PostSerializer(serializers.ModelSerializer):
         hashtags_data = validated_data.pop('hashtags', None)
         references_data = validated_data.pop('references', None)
 
-        # Päivitä tekstikentät
+        # Update text fields
         instance.text = validated_data.get('text', instance.text)
         instance.save()
 
-        # Päivitä hashtagit
+        # Update hashtags
         if hashtags_data is not None:
             instance.hashtags.clear()
             for hashtag_data in hashtags_data:
-                # Hae olemassa oleva hashtagi tai luo uusi
                 hashtag, created = Hashtag.objects.get_or_create(name=hashtag_data['name'])
                 instance.hashtags.add(hashtag)
 
-        # Päivitä viittaukset
+        # Update references
         if references_data is not None:
             instance.references.set(references_data)
 
