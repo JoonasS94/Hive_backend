@@ -13,7 +13,6 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-#uutta
 
 # Set up the Swagger schema view
 schema_view = get_schema_view(

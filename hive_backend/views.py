@@ -1,15 +1,19 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
 from django.contrib.auth import get_user_model
-from rest_framework.views import APIView
 from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
-from rest_framework.permissions import IsAuthenticated
 from .serializers import (
-    UserSerializer, UserRegistrationSerializer, PostSerializer, HashtagSerializer,
+    UserSerializer, PostSerializer, HashtagSerializer,
     LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer
 )
+from rest_framework.permissions import IsAuthenticated
+
+from rest_framework.views import APIView
+from rest_framework import status
+from .serializers import UserRegistrationSerializer
+
 
 # Get the custom user model
 User = get_user_model()
