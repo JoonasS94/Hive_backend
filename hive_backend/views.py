@@ -6,26 +6,25 @@ from django.contrib.auth import get_user_model
 from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
-    LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer, FollowedUsersSerializer
+    LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer, FollowedUsersSerializer,
+    UserRegistrationSerializer
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework import status
-from .serializers import UserRegistrationSerializer
 
-
-# Get the custom user model
+# Hae mukautettu käyttäjämalli
 User = get_user_model()
 
 # User ViewSet
-class UserViewSet(viewsets.ReadOnlyModelViewSet):  # Changed to ReadOnly for security
+class UserViewSet(viewsets.ReadOnlyModelViewSet):  # ReadOnly turvallisuussyistä
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=["get"], url_path="me")
     def get_me(self, request):
-        """Endpoint to retrieve the logged-in user's details."""
+        """Kirjautuneen käyttäjän tietojen haku."""
         user = request.user
         serializer = self.get_serializer(user)
         return Response(serializer.data)
@@ -50,11 +49,11 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        """Ensure the logged-in user is set as the post's owner."""
-        serializer.save(user=self.request.user)
+        """Salli käyttäjän valitseminen pyyntödatassa."""
+        serializer.save()
 
     def get_queryset(self):
-        """Allow searching for posts by title or description."""
+        """Haku otsikon tai kuvauksen perusteella."""
         queryset = super().get_queryset()
         query = self.request.query_params.get("search", None)
         if query:
@@ -63,32 +62,28 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="like")
     def like_post(self, request, pk=None):
-        """Allow a user to like a post."""
+        """Mahdollista postauksen tykkääminen."""
         post = self.get_object()
         user = request.user
 
-        # Check if the user has already liked the post
         if LikedPosts.objects.filter(user=user, post=post).exists():
-            return Response({"detail": "You have already liked this post."}, status=400)
+            return Response({"detail": "Olet jo tykännyt tästä postauksesta."}, status=400)
 
-        # Create a new like
         LikedPosts.objects.create(user=user, post=post)
-        return Response({"detail": "Post liked successfully."}, status=201)
+        return Response({"detail": "Postaus tykätty onnistuneesti."}, status=201)
 
     @action(detail=True, methods=["post"], url_path="unlike")
     def unlike_post(self, request, pk=None):
-        """Allow a user to unlike a post."""
+        """Mahdollista postauksen tykkäyksen poisto."""
         post = self.get_object()
         user = request.user
 
-        # Check if the user has liked the post
         liked_post = LikedPosts.objects.filter(user=user, post=post).first()
         if not liked_post:
-            return Response({"detail": "You haven't liked this post."}, status=400)
+            return Response({"detail": "Et ole tykännyt tästä postauksesta."}, status=400)
 
-        # Remove the like
         liked_post.delete()
-        return Response({"detail": "Post unliked successfully."}, status=200)
+        return Response({"detail": "Tykkäys poistettu onnistuneesti."}, status=200)
 
 # Hashtag ViewSet
 class HashtagViewSet(viewsets.ModelViewSet):
@@ -98,7 +93,7 @@ class HashtagViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="search")
     def search_hashtags(self, request):
-        """Search for hashtags by name."""
+        """Hae hashtageja nimen perusteella."""
         query = request.query_params.get("q", "")
         hashtags = self.queryset.filter(name__icontains=query)
         serializer = self.get_serializer(hashtags, many=True)
@@ -111,21 +106,14 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        """Check if the like relationship already exists before creating a new one."""
+        """Estä saman käyttäjän tykkäyksen luominen useasti."""
         liker = request.data.get('liker')
         liked_user = request.data.get('liked_user')
 
-        # Check if the like relationship already exists
         if LikedUsers.objects.filter(liker_id=liker, liked_user_id=liked_user).exists():
-            # If the like already exists, return a 200 OK response
-            return Response(
-                {"detail": "You already like this user."},
-                status=status.HTTP_200_OK
-            )
-        
-        # If the like doesn't exist, proceed with the normal creation process
-        return super().create(request, *args, **kwargs)
+            return Response({"detail": "Olet jo tykännyt tästä käyttäjästä."}, status=status.HTTP_200_OK)
 
+        return super().create(request, *args, **kwargs)
 
 # FollowedHashtags ViewSet
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
@@ -134,38 +122,17 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        """Ensure the follower is the logged-in user."""
+        """Aseta kirjautunut käyttäjä seuraajaksi."""
         serializer.save(user=self.request.user)
 
     @action(detail=False, methods=["get"], url_path="my-followed")
     def get_my_followed(self, request):
-        """Retrieve hashtags followed by the logged-in user."""
+        """Hae kirjautuneen käyttäjän seuraamat hashtagit."""
         hashtags = self.queryset.filter(user=request.user)
         serializer = self.get_serializer(hashtags, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["get"], url_path="followed-count")
-    def followed_hashtags_count(self, request, pk=None):
-        """Retrieve the count of hashtags the user is following."""
-        user = self.get_object().user
-        followed_hashtags_count = FollowedHashtags.objects.filter(user=user).count()
-        return Response({
-            'user': user.id,
-            'amount_of_followed_hashtags': followed_hashtags_count
-        })
-
-    # Lisätty retrieve-metodi
-    def retrieve(self, request, *args, **kwargs):
-        """Retrieve a single followed hashtag and the count of hashtags followed by the user."""
-        instance = self.get_object()
-        user = instance.user
-        followed_hashtags_count = FollowedHashtags.objects.filter(user=user).count()
-        return Response({
-            'user': user.id,
-            'amount_of_followed_hashtags': followed_hashtags_count
-        })
-
-# FollowedUsers ViewSet - Uusi toiminnallisuus
+# FollowedUsers ViewSet
 class FollowedUsersViewSet(viewsets.ModelViewSet):
     queryset = FollowedUsers.objects.all()
     serializer_class = FollowedUsersSerializer
@@ -173,20 +140,20 @@ class FollowedUsersViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-followed-users")
     def get_my_followed_users(self, request):
-        """Retrieve users followed by the logged-in user."""
+        """Hae käyttäjät, joita kirjautunut käyttäjä seuraa."""
         followed_users = self.queryset.filter(follower=request.user)
         serializer = self.get_serializer(followed_users, many=True)
         return Response(serializer.data)
 
 # LikedPosts ViewSet
-class LikedPostsViewSet(viewsets.ReadOnlyModelViewSet):  # Changed to ReadOnly
+class LikedPostsViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LikedPosts.objects.all()
     serializer_class = LikedPostsSerializer
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=["get"], url_path="my-likes")
     def get_my_likes(self, request):
-        """Retrieve posts liked by the logged-in user."""
+        """Hae kirjautuneen käyttäjän tykkäämät postaukset."""
         liked_posts = self.queryset.filter(user=request.user)
         serializer = self.get_serializer(liked_posts, many=True)
         return Response(serializer.data)

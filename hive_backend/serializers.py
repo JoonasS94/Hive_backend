@@ -5,6 +5,7 @@ from django.contrib.auth.hashers import make_password
 
 User = get_user_model()
 
+# UserRegistrationSerializer
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -65,7 +66,6 @@ class UserSerializer(serializers.ModelSerializer):
         """Count the number of posts liked by this user."""
         return LikedPosts.objects.filter(user=obj).count()
 
-# PostSerializer
 class PostSerializer(serializers.ModelSerializer):
     hashtags = HashtagSerializer(many=True)  # Nested Hashtag serializer
     references = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), many=True, required=False)
@@ -76,6 +76,7 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ['id', 'text', 'time', 'user', 'hashtags', 'references']
 
     def to_representation(self, instance):
+        """Muuntaa datan luettavampaan muotoon vastauksessa."""
         representation = super().to_representation(instance)
         representation['references'] = [
             {"id": user.id, "username": user.username}
@@ -87,34 +88,55 @@ class PostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         hashtags_data = validated_data.pop('hashtags', [])
         references_data = validated_data.pop('references', [])
-        user = self.context['request'].user
 
+        # Ota käyttäjä validated_data:sta tai requestin kontekstista
+        user = validated_data.pop('user', self.context['request'].user)
+
+        # Luo postaus
         post = Post.objects.create(user=user, **validated_data)
 
+        # Käy läpi hashtagit ja lisää ne
         for hashtag_data in hashtags_data:
-            hashtag, created = Hashtag.objects.get_or_create(name=hashtag_data['name'])
+            hashtag_name = hashtag_data.get('name')
+            if not hashtag_name:
+                continue  # Ohitetaan tyhjät nimet
+
+            # Käytetään get_or_create-metodia, jotta luodaan vain, jos hashtagi ei ole olemassa
+            hashtag, created = Hashtag.objects.get_or_create(name=hashtag_name)
             post.hashtags.add(hashtag)
 
+        # Lisää referenssit
         post.references.set(references_data)
+
         return post
 
     def update(self, instance, validated_data):
         hashtags_data = validated_data.pop('hashtags', None)
         references_data = validated_data.pop('references', None)
 
+        # Päivitä postauksen teksti
         instance.text = validated_data.get('text', instance.text)
         instance.save()
 
         if hashtags_data is not None:
+            # Tyhjennä ja lisää hashtagit uudestaan
             instance.hashtags.clear()
             for hashtag_data in hashtags_data:
-                hashtag, created = Hashtag.objects.get_or_create(name=hashtag_data['name'])
+                hashtag_name = hashtag_data.get('name')
+                if not hashtag_name:
+                    continue
+
+                # Käytä get_or_create-metodia ennen hashtagien lisäämistä
+                hashtag, created = Hashtag.objects.get_or_create(name=hashtag_name)
                 instance.hashtags.add(hashtag)
 
         if references_data is not None:
+            # Päivitä referenssit
             instance.references.set(references_data)
 
         return instance
+
+
 
 # LikedUsersSerializer
 class LikedUsersSerializer(serializers.ModelSerializer):
