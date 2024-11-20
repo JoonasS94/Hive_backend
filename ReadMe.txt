@@ -11,5 +11,5 @@ Miten pyöritetään serveriä:
 4. venv\Scripts\activate
 5. pip install -r requirements.txt
 6. python manage.py runserver
-7. 127.0.0.1:8000/admin/ tunnus: Admin salasana: root
+7. 127.0.0.1:8000/admin/ tunnus: admin salasana: root
 8. Endpointit voit tarkastella swaggerilla osoitteessa 127.0.0.1:8000/swagger/
