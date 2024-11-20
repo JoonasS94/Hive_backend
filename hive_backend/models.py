@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class User(models.Model):
     email = models.EmailField(max_length=64)
@@ -10,13 +11,11 @@ class User(models.Model):
     def __str__(self):
         return self.username
 
-
 class Hashtag(models.Model):
     name = models.CharField(max_length=20, unique=False)
 
     def __str__(self):
         return self.name
-
 
 class Post(models.Model):
     text = models.CharField(max_length=144)
@@ -32,7 +31,7 @@ class Post(models.Model):
 class LikedUsers(models.Model):
     liker = models.ForeignKey(User, on_delete=models.CASCADE, related_name="liked_users")
     liked_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="users_liked_by")
-    
+
     class Meta:
         unique_together = ("liker", "liked_user")
 
@@ -43,7 +42,7 @@ class LikedUsers(models.Model):
 class FollowedHashtags(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="followed_hashtags")
     hashtag = models.ForeignKey(Hashtag, on_delete=models.CASCADE, related_name="followers")
-    
+
     class Meta:
         unique_together = ("user", "hashtag")
 
@@ -54,7 +53,7 @@ class FollowedHashtags(models.Model):
 class LikedPosts(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="liked_posts")
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="liked_by")
-    
+
     class Meta:
         unique_together = ("user", "post")
 
