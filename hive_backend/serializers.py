@@ -9,9 +9,20 @@ class HashtagSerializer(serializers.ModelSerializer):
 
 # UserSerializer
 class UserSerializer(serializers.ModelSerializer):
+    amount_of_liked_users = serializers.SerializerMethodField()  # Kuinka monesta käyttäjästä tämä/ minä käyttäjä on tykännyt
+    amount_of_me_liked_users = serializers.SerializerMethodField()  # Kuinka moni käyttäjä on tykännyt tästä/ minun käyttäjästä
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'password', 'bio']
+        fields = ['id', 'email', 'username', 'password', 'bio', 'amount_of_liked_users', 'amount_of_me_liked_users']
+
+    def get_amount_of_liked_users(self, obj):
+        # Lasketaan kuinka monta käyttäjää käyttäjä on tykännyt
+        return LikedUsers.objects.filter(liker=obj).count()
+
+    def get_amount_of_me_liked_users(self, obj):
+        # Lasketaan kuinka moni käyttäjä on tykännyt tästä käyttäjästä
+        return LikedUsers.objects.filter(liked_user=obj).count()
 
 # PostSerializer
 class PostSerializer(serializers.ModelSerializer):
