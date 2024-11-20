@@ -3,13 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
 from django.contrib.auth import get_user_model
-from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts
+from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
-    LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer
+    LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer, FollowedUsersSerializer
 )
 from rest_framework.permissions import IsAuthenticated
-
 from rest_framework.views import APIView
 from rest_framework import status
 from .serializers import UserRegistrationSerializer
@@ -53,6 +52,14 @@ class PostViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Ensure the logged-in user is set as the post's owner."""
         serializer.save(user=self.request.user)
+
+    def get_queryset(self):
+        """Allow searching for posts by title or description."""
+        queryset = super().get_queryset()
+        query = self.request.query_params.get("search", None)
+        if query:
+            queryset = queryset.filter(Q(title__icontains=query) | Q(description__icontains=query))
+        return queryset
 
     @action(detail=True, methods=["post"], url_path="like")
     def like_post(self, request, pk=None):
@@ -103,9 +110,22 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
     serializer_class = LikedUsersSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        """Ensure the liker is the logged-in user."""
-        serializer.save(liker=self.request.user)
+    def create(self, request, *args, **kwargs):
+        """Check if the like relationship already exists before creating a new one."""
+        liker = request.data.get('liker')
+        liked_user = request.data.get('liked_user')
+
+        # Check if the like relationship already exists
+        if LikedUsers.objects.filter(liker_id=liker, liked_user_id=liked_user).exists():
+            # If the like already exists, return a 200 OK response
+            return Response(
+                {"detail": "You already like this user."},
+                status=status.HTTP_200_OK
+            )
+        
+        # If the like doesn't exist, proceed with the normal creation process
+        return super().create(request, *args, **kwargs)
+
 
 # FollowedHashtags ViewSet
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
@@ -122,6 +142,40 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
         """Retrieve hashtags followed by the logged-in user."""
         hashtags = self.queryset.filter(user=request.user)
         serializer = self.get_serializer(hashtags, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="followed-count")
+    def followed_hashtags_count(self, request, pk=None):
+        """Retrieve the count of hashtags the user is following."""
+        user = self.get_object().user
+        followed_hashtags_count = FollowedHashtags.objects.filter(user=user).count()
+        return Response({
+            'user': user.id,
+            'amount_of_followed_hashtags': followed_hashtags_count
+        })
+
+    # Lisätty retrieve-metodi
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve a single followed hashtag and the count of hashtags followed by the user."""
+        instance = self.get_object()
+        user = instance.user
+        followed_hashtags_count = FollowedHashtags.objects.filter(user=user).count()
+        return Response({
+            'user': user.id,
+            'amount_of_followed_hashtags': followed_hashtags_count
+        })
+
+# FollowedUsers ViewSet - Uusi toiminnallisuus
+class FollowedUsersViewSet(viewsets.ModelViewSet):
+    queryset = FollowedUsers.objects.all()
+    serializer_class = FollowedUsersSerializer
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["get"], url_path="my-followed-users")
+    def get_my_followed_users(self, request):
+        """Retrieve users followed by the logged-in user."""
+        followed_users = self.queryset.filter(follower=request.user)
+        serializer = self.get_serializer(followed_users, many=True)
         return Response(serializer.data)
 
 # LikedPosts ViewSet

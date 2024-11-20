@@ -28,7 +28,6 @@ class Post(models.Model):
     def __str__(self):
         return f"{self.text[:20]}... by {self.user.username}"
 
-
 class LikedUsers(models.Model):
     liker = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="liked_users")
     liked_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="users_liked_by")
@@ -38,7 +37,6 @@ class LikedUsers(models.Model):
 
     def __str__(self):
         return f"{self.liker.username} likes {self.liked_user.username}"
-
 
 class FollowedHashtags(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="followed_hashtags")
@@ -50,7 +48,6 @@ class FollowedHashtags(models.Model):
     def __str__(self):
         return f"{self.user.username} follows #{self.hashtag.name}"
 
-
 class LikedPosts(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="liked_posts")
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="liked_by")
@@ -60,3 +57,13 @@ class LikedPosts(models.Model):
 
     def __str__(self):
         return f"{self.user.username} likes post {self.post.id}"
+
+class FollowedUsers(models.Model):
+    follower = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="following")
+    followed_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="followers")
+
+    class Meta:
+        unique_together = ("follower", "followed_user")
+
+    def __str__(self):
+        return f"{self.follower.username} follows {self.followed_user.username}"
