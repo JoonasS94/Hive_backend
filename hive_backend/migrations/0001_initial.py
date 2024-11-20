@@ -36,17 +36,17 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('text', models.CharField(max_length=144)),
                 ('time', models.DateTimeField(auto_now_add=True)),
-                ('hashtags', models.ManyToManyField(related_name='posts', to='hive.hashtag')),
-                ('references', models.ManyToManyField(blank=True, related_name='referenced_posts', to='hive.user')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posts', to='hive.user')),
+                ('hashtags', models.ManyToManyField(related_name='posts', to='hive_backend.hashtag')),
+                ('references', models.ManyToManyField(blank=True, related_name='referenced_posts', to='hive_backend.user')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posts', to='hive_backend.user')),
             ],
         ),
         migrations.CreateModel(
             name='LikedUsers',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('liked_user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='users_liked_by', to='hive.user')),
-                ('liker', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='liked_users', to='hive.user')),
+                ('liked_user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='users_liked_by', to='hive_backend.user')),
+                ('liker', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='liked_users', to='hive_backend.user')),
             ],
             options={
                 'unique_together': {('liker', 'liked_user')},
@@ -56,8 +56,8 @@ class Migration(migrations.Migration):
             name='LikedPosts',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('post', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='liked_by', to='hive.post')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='liked_posts', to='hive.user')),
+                ('post', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='liked_by', to='hive_backend.post')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='liked_posts', to='hive_backend.user')),
             ],
             options={
                 'unique_together': {('user', 'post')},
@@ -67,8 +67,8 @@ class Migration(migrations.Migration):
             name='FollowedHashtags',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('hashtag', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followers', to='hive.hashtag')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followed_hashtags', to='hive.user')),
+                ('hashtag', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followers', to='hive_backend.hashtag')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followed_hashtags', to='hive_backend.user')),
             ],
             options={
                 'unique_together': {('user', 'hashtag')},
