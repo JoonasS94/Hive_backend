@@ -1,27 +1,39 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework_simplejwt.views import TokenObtainPairView
+
 from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers
 from .serializers import (
-    UserSerializer, PostSerializer, HashtagSerializer,
-    LikedUsersSerializer, FollowedHashtagsSerializer, LikedPostsSerializer, FollowedUsersSerializer,
-    UserRegistrationSerializer
+    PostSerializer, HashtagSerializer,
+    LikedUsersSerializer, FollowedHashtagsSerializer,
+    LikedPostsSerializer, FollowedUsersSerializer,
+    UserRegistrationSerializer, CustomTokenObtainPairSerializer
 )
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from rest_framework import status
 
 # Hae mukautettu käyttäjämalli
 User = get_user_model()
 
+
+# Custom Token View
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+
 # User ViewSet
 class UserViewSet(viewsets.ReadOnlyModelViewSet):  # ReadOnly turvallisuussyistä
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = None  # Prevent circular imports
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import UserSerializer  # Lazy import to avoid circular imports
+        return UserSerializer
 
     @action(detail=False, methods=["get"], url_path="me")
     def get_me(self, request):
@@ -30,8 +42,10 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):  # ReadOnly turvallisuussyist�
         serializer = self.get_serializer(user)
         return Response(serializer.data)
 
+
 class UserRegistrationView(APIView):
     def post(self, request):
+        from .serializers import UserRegistrationSerializer  # Lazy import
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
@@ -43,13 +57,14 @@ class UserRegistrationView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 # Post ViewSet
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]  # Suodatusominaisuus käyttöön
-    filterset_fields = ['user']  # Mahdollistaa suodatuksen käyttäjän perusteella
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['user']
 
     def perform_create(self, serializer):
         """Salli käyttäjän valitseminen pyyntödatassa."""
@@ -88,6 +103,7 @@ class PostViewSet(viewsets.ModelViewSet):
         liked_post.delete()
         return Response({"detail": "Tykkäys poistettu onnistuneesti."}, status=200)
 
+
 # Hashtag ViewSet
 class HashtagViewSet(viewsets.ModelViewSet):
     queryset = Hashtag.objects.all()
@@ -101,6 +117,7 @@ class HashtagViewSet(viewsets.ModelViewSet):
         hashtags = self.queryset.filter(name__icontains=query)
         serializer = self.get_serializer(hashtags, many=True)
         return Response(serializer.data)
+
 
 # LikedUsers ViewSet
 class LikedUsersViewSet(viewsets.ModelViewSet):
@@ -117,6 +134,7 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Olet jo tykännyt tästä käyttäjästä."}, status=status.HTTP_200_OK)
 
         return super().create(request, *args, **kwargs)
+
 
 # FollowedHashtags ViewSet
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
@@ -135,6 +153,7 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(hashtags, many=True)
         return Response(serializer.data)
 
+
 # FollowedUsers ViewSet
 class FollowedUsersViewSet(viewsets.ModelViewSet):
     queryset = FollowedUsers.objects.all()
@@ -147,6 +166,7 @@ class FollowedUsersViewSet(viewsets.ModelViewSet):
         followed_users = self.queryset.filter(follower=request.user)
         serializer = self.get_serializer(followed_users, many=True)
         return Response(serializer.data)
+
 
 # LikedPosts ViewSet
 class LikedPostsViewSet(viewsets.ReadOnlyModelViewSet):

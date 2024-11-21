@@ -1,11 +1,29 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers
+from django.db.models import Count
 from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers
 
 User = get_user_model()
 
-# UserRegistrationSerializer
+
+# Custom Token Serializer to include user data in token response
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        # Call the parent method to get the token data
+        data = super().validate(attrs)
+
+        # Serialize the user object
+        user_data = UserSerializer(self.user).data
+
+        # Add the serialized user data to the token response
+        data["user"] = user_data
+
+        return data
+
+
+# User Registration Serializer
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -17,17 +35,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_password(self, value):
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
-        return make_password(value)  # Hash the password
+        return make_password(value)  # Hash the password before saving
 
 
-# HashtagSerializer
+# Hashtag Serializer
 class HashtagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hashtag
         fields = ['id', 'name']
 
 
-# UserSerializer
+# User Serializer
 class UserSerializer(serializers.ModelSerializer):
     amount_of_liked_users = serializers.SerializerMethodField()  # Number of users this user has liked
     liked_user_id = serializers.SerializerMethodField()  # IDs of users this user has liked
@@ -41,17 +59,15 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'username', 'bio',
-            'amount_of_liked_users', 'liked_user_id', 
-            'amount_of_me_liked_users',
-            'amount_of_followed_hashtags', 'id_and_name_of_followed_hashtags',
-            'posts_count', 'liked_posts_count'
+            'amount_of_liked_users', 'liked_user_id',
+            'amount_of_me_liked_users', 'amount_of_followed_hashtags',
+            'id_and_name_of_followed_hashtags', 'posts_count', 'liked_posts_count',
         ]
 
     def get_amount_of_liked_users(self, obj):
         return LikedUsers.objects.filter(liker=obj).count()
 
     def get_liked_user_id(self, obj):
-        """Retrieve the IDs of users this user has liked."""
         liked_users = LikedUsers.objects.filter(liker=obj).values_list('liked_user__id', flat=True)
         return [{"id": user_id} for user_id in liked_users]
 
@@ -59,23 +75,20 @@ class UserSerializer(serializers.ModelSerializer):
         return LikedUsers.objects.filter(liked_user=obj).count()
 
     def get_amount_of_followed_hashtags(self, obj):
-        """Count the number of hashtags this user follows."""
         return FollowedHashtags.objects.filter(user=obj).values('hashtag').distinct().count()
 
     def get_id_and_name_of_followed_hashtags(self, obj):
-        """Retrieve the ID and name of hashtags this user follows."""
         followed_hashtags = FollowedHashtags.objects.filter(user=obj).select_related('hashtag')
         return [{"id": hashtag.hashtag.id, "name": hashtag.hashtag.name} for hashtag in followed_hashtags]
 
     def get_posts_count(self, obj):
-        """Count the number of posts created by this user."""
         return Post.objects.filter(user=obj).count()
 
     def get_liked_posts_count(self, obj):
-        """Count the number of posts liked by this user."""
         return LikedPosts.objects.filter(user=obj).count()
 
 
+# Post Serializer
 class PostSerializer(serializers.ModelSerializer):
     hashtags = HashtagSerializer(many=True)  # Nested Hashtag serializer
     references = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), many=True, required=False)
@@ -86,7 +99,7 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ['id', 'text', 'time', 'user', 'hashtags', 'references']
 
     def to_representation(self, instance):
-        """Muuntaa datan luettavampaan muotoon vastauksessa."""
+        """Convert data to a more readable format in the response."""
         representation = super().to_representation(instance)
         representation['references'] = [
             {"id": user.id, "username": user.username}
@@ -99,23 +112,20 @@ class PostSerializer(serializers.ModelSerializer):
         hashtags_data = validated_data.pop('hashtags', [])
         references_data = validated_data.pop('references', [])
 
-        # Ota käyttäjä validated_data:sta tai requestin kontekstista
+        # Use the authenticated user as the post's user
         user = validated_data.pop('user', self.context['request'].user)
 
-        # Luo postaus
+        # Create the post
         post = Post.objects.create(user=user, **validated_data)
 
-        # Käy läpi hashtagit ja lisää ne
+        # Add hashtags
         for hashtag_data in hashtags_data:
             hashtag_name = hashtag_data.get('name')
-            if not hashtag_name:
-                continue  # Ohitetaan tyhjät nimet
+            if hashtag_name:
+                hashtag, _ = Hashtag.objects.get_or_create(name=hashtag_name)
+                post.hashtags.add(hashtag)
 
-            # Käytetään get_or_create-metodia, jotta luodaan vain, jos hashtagi ei ole olemassa
-            hashtag, created = Hashtag.objects.get_or_create(name=hashtag_name)
-            post.hashtags.add(hashtag)
-
-        # Lisää referenssit
+        # Add references
         post.references.set(references_data)
 
         return post
@@ -124,53 +134,48 @@ class PostSerializer(serializers.ModelSerializer):
         hashtags_data = validated_data.pop('hashtags', None)
         references_data = validated_data.pop('references', None)
 
-        # Päivitä postauksen teksti
+        # Update the post's text
         instance.text = validated_data.get('text', instance.text)
         instance.save()
 
         if hashtags_data is not None:
-            # Tyhjennä ja lisää hashtagit uudestaan
             instance.hashtags.clear()
             for hashtag_data in hashtags_data:
                 hashtag_name = hashtag_data.get('name')
-                if not hashtag_name:
-                    continue
-
-                # Käytä get_or_create-metodia ennen hashtagien lisäämistä
-                hashtag, created = Hashtag.objects.get_or_create(name=hashtag_name)
-                instance.hashtags.add(hashtag)
+                if hashtag_name:
+                    hashtag, _ = Hashtag.objects.get_or_create(name=hashtag_name)
+                    instance.hashtags.add(hashtag)
 
         if references_data is not None:
-            # Päivitä referenssit
             instance.references.set(references_data)
 
         return instance
 
 
-# LikedUsersSerializer
+# Liked Users Serializer
 class LikedUsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikedUsers
         fields = ['liker', 'liked_user']
 
 
-# FollowedHashtagsSerializer
+# Followed Hashtags Serializer
 class FollowedHashtagsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FollowedHashtags
         fields = ['user', 'hashtag']
 
 
-# LikedPostsSerializer
+# Liked Posts Serializer
 class LikedPostsSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikedPosts
         fields = ['user', 'post']
 
 
-# FollowedUsersSerializer
+# Followed Users Serializer
 class FollowedUsersSerializer(serializers.ModelSerializer):
-    follower = serializers.StringRelatedField()  # Vaihtoehtoisesti voit käyttää CustomUserSerializeria
+    follower = serializers.StringRelatedField()
     followed_user = serializers.StringRelatedField()
 
     class Meta:
