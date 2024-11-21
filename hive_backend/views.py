@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
 from django.contrib.auth import get_user_model
+from django_filters.rest_framework import DjangoFilterBackend
 from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers
 from .serializers import (
     UserSerializer, PostSerializer, HashtagSerializer,
@@ -47,6 +48,8 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]  # Suodatusominaisuus käyttöön
+    filterset_fields = ['user']  # Mahdollistaa suodatuksen käyttäjän perusteella
 
     def perform_create(self, serializer):
         """Salli käyttäjän valitseminen pyyntödatassa."""
