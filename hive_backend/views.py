@@ -146,12 +146,23 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
         """Aseta kirjautunut käyttäjä seuraajaksi."""
         serializer.save(user=self.request.user)
 
+    def create(self, request, *args, **kwargs):
+        """Estä saman käyttäjän seuraamisen useasti."""
+        user = request.data.get('user')
+        hashtag = request.data.get('hashtag')
+
+        if FollowedHashtags.objects.filter(user_id=user, hashtag_id=hashtag).exists():
+            return Response({"detail": "You have already liked this hashtag."}, status=status.HTTP_200_OK)
+
+        return super().create(request, *args, **kwargs)
+
     @action(detail=False, methods=["get"], url_path="my-followed")
     def get_my_followed(self, request):
         """Hae kirjautuneen käyttäjän seuraamat hashtagit."""
         hashtags = self.queryset.filter(user=request.user)
         serializer = self.get_serializer(hashtags, many=True)
         return Response(serializer.data)
+
 
 
 # FollowedUsers ViewSet
