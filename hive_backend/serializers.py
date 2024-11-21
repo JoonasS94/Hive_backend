@@ -19,15 +19,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Password must be at least 8 characters long.")
         return make_password(value)  # Hash the password
 
+
 # HashtagSerializer
 class HashtagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hashtag
         fields = ['id', 'name']
 
+
 # UserSerializer
 class UserSerializer(serializers.ModelSerializer):
     amount_of_liked_users = serializers.SerializerMethodField()  # Number of users this user has liked
+    liked_user_id = serializers.SerializerMethodField()  # IDs of users this user has liked
     amount_of_me_liked_users = serializers.SerializerMethodField()  # Number of users who have liked this user
     amount_of_followed_hashtags = serializers.SerializerMethodField()  # Count of followed hashtags
     id_and_name_of_followed_hashtags = serializers.SerializerMethodField()  # ID and name of followed hashtags
@@ -38,13 +41,19 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'username', 'bio',
-            'amount_of_liked_users', 'amount_of_me_liked_users',
+            'amount_of_liked_users', 'liked_user_id', 
+            'amount_of_me_liked_users',
             'amount_of_followed_hashtags', 'id_and_name_of_followed_hashtags',
             'posts_count', 'liked_posts_count'
         ]
 
     def get_amount_of_liked_users(self, obj):
         return LikedUsers.objects.filter(liker=obj).count()
+
+    def get_liked_user_id(self, obj):
+        """Retrieve the IDs of users this user has liked."""
+        liked_users = LikedUsers.objects.filter(liker=obj).values_list('liked_user__id', flat=True)
+        return [{"id": user_id} for user_id in liked_users]
 
     def get_amount_of_me_liked_users(self, obj):
         return LikedUsers.objects.filter(liked_user=obj).count()
@@ -65,6 +74,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_liked_posts_count(self, obj):
         """Count the number of posts liked by this user."""
         return LikedPosts.objects.filter(user=obj).count()
+
 
 class PostSerializer(serializers.ModelSerializer):
     hashtags = HashtagSerializer(many=True)  # Nested Hashtag serializer
@@ -137,12 +147,12 @@ class PostSerializer(serializers.ModelSerializer):
         return instance
 
 
-
 # LikedUsersSerializer
 class LikedUsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikedUsers
         fields = ['liker', 'liked_user']
+
 
 # FollowedHashtagsSerializer
 class FollowedHashtagsSerializer(serializers.ModelSerializer):
@@ -150,11 +160,13 @@ class FollowedHashtagsSerializer(serializers.ModelSerializer):
         model = FollowedHashtags
         fields = ['user', 'hashtag']
 
+
 # LikedPostsSerializer
 class LikedPostsSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikedPosts
         fields = ['user', 'post']
+
 
 # FollowedUsersSerializer
 class FollowedUsersSerializer(serializers.ModelSerializer):
