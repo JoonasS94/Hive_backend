@@ -10,7 +10,7 @@ from rest_framework import permissions
 from .views import (
     UserViewSet, PostViewSet, HashtagViewSet,
     LikedUsersViewSet, FollowedHashtagsViewSet, LikedPostsViewSet, FollowedUsersViewSet,
-    UserRegistrationView, CustomTokenObtainPairView
+    UserRegistrationView, CustomTokenObtainPairView, CommentListCreateView, CommentRetrieveUpdateDestroyView
 )
 
 # Swagger Schema
@@ -27,7 +27,7 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,),
 )
 
-# Router
+# Create the router and register the viewsets
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename="user")
 router.register(r'posts', PostViewSet, basename="post")
@@ -37,7 +37,7 @@ router.register(r'followed-hashtags', FollowedHashtagsViewSet, basename="followe
 router.register(r'liked-posts', LikedPostsViewSet, basename="liked-post")
 router.register(r'followed-users', FollowedUsersViewSet, basename="followed-user")
 
-# URL patterns
+# Define the URL patterns
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
@@ -46,4 +46,8 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', UserRegistrationView.as_view(), name='user-registration'),
     path('', include(router.urls)),
+
+    # Add comments-related routes
+    path('comments/', CommentListCreateView.as_view(), name='comment-list-create'),
+    path('comments/<int:pk>/', CommentRetrieveUpdateDestroyView.as_view(), name='comment-retrieve-update-destroy'),
 ]
