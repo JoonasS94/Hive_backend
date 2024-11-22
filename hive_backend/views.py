@@ -16,36 +16,35 @@ from .serializers import (
     UserRegistrationSerializer, CustomTokenObtainPairSerializer
 )
 
-# Hae mukautettu käyttäjämalli
 User = get_user_model()
 
 
-# Custom Token View
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-# User ViewSet
-class UserViewSet(viewsets.ReadOnlyModelViewSet):  # ReadOnly turvallisuussyistä
+class UserViewSet(viewsets.ModelViewSet):  # Vaihdettu ReadOnly -> ModelViewSet
     queryset = User.objects.all()
-    serializer_class = None  # Prevent circular imports
+    serializer_class = None
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
-        from .serializers import UserSerializer  # Lazy import to avoid circular imports
+        from .serializers import UserSerializer
         return UserSerializer
 
     @action(detail=False, methods=["get"], url_path="me")
     def get_me(self, request):
-        """Kirjautuneen käyttäjän tietojen haku."""
         user = request.user
         serializer = self.get_serializer(user)
         return Response(serializer.data)
 
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
 
 class UserRegistrationView(APIView):
     def post(self, request):
-        from .serializers import UserRegistrationSerializer  # Lazy import
+        from .serializers import UserRegistrationSerializer
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
@@ -58,7 +57,6 @@ class UserRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Post ViewSet
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')
     serializer_class = PostSerializer
@@ -67,44 +65,19 @@ class PostViewSet(viewsets.ModelViewSet):
     filterset_fields = ['user']
 
     def perform_create(self, serializer):
-        """Salli käyttäjän valitseminen pyyntödatassa."""
         serializer.save()
 
     def get_queryset(self):
-        """Haku otsikon tai kuvauksen perusteella."""
         queryset = super().get_queryset()
         query = self.request.query_params.get("search", None)
         if query:
             queryset = queryset.filter(Q(title__icontains=query) | Q(description__icontains=query))
         return queryset
 
-    @action(detail=True, methods=["post"], url_path="like")
-    def like_post(self, request, pk=None):
-        """Mahdollista postauksen tykkääminen."""
-        post = self.get_object()
-        user = request.user
-
-        if LikedPosts.objects.filter(user=user, post=post).exists():
-            return Response({"detail": "Olet jo tykännyt tästä postauksesta."}, status=400)
-
-        LikedPosts.objects.create(user=user, post=post)
-        return Response({"detail": "Postaus tykätty onnistuneesti."}, status=201)
-
-    @action(detail=True, methods=["post"], url_path="unlike")
-    def unlike_post(self, request, pk=None):
-        """Mahdollista postauksen tykkäyksen poisto."""
-        post = self.get_object()
-        user = request.user
-
-        liked_post = LikedPosts.objects.filter(user=user, post=post).first()
-        if not liked_post:
-            return Response({"detail": "Et ole tykännyt tästä postauksesta."}, status=400)
-
-        liked_post.delete()
-        return Response({"detail": "Tykkäys poistettu onnistuneesti."}, status=200)
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
 
 
-# Hashtag ViewSet
 class HashtagViewSet(viewsets.ModelViewSet):
     queryset = Hashtag.objects.all()
     serializer_class = HashtagSerializer
@@ -112,7 +85,6 @@ class HashtagViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="search")
     def search_hashtags(self, request):
-        """Hae hashtageja nimen perusteella."""
         query = request.query_params.get("q", "")
         hashtags = self.queryset.filter(name__icontains=query)
         serializer = self.get_serializer(hashtags, many=True)
