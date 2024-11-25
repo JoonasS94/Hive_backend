@@ -15,12 +15,10 @@ from django.views.decorators.csrf import csrf_exempt
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers, Comment, CustomUser
+from .models import Post, Hashtag, LikedUsers, FollowedHashtags, Comment, CustomUser
 from .serializers import (
     PostSerializer, HashtagSerializer,
-    LikedUsersSerializer, FollowedHashtagsSerializer,
-    LikedPostsSerializer, FollowedUsersSerializer,
-    UserRegistrationSerializer, CustomTokenObtainPairSerializer, CommentSerializer
+    LikedUsersSerializer, FollowedHashtagsSerializer, UserRegistrationSerializer, CustomTokenObtainPairSerializer, CommentSerializer
 )
 
 from rest_framework import status
@@ -139,32 +137,6 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
         """Search hashtags followed by a logged in user."""
         hashtags = self.queryset.filter(user=request.user)
         serializer = self.get_serializer(hashtags, many=True)
-        return Response(serializer.data)
-
-
-class FollowedUsersViewSet(viewsets.ModelViewSet):
-    queryset = FollowedUsers.objects.all()
-    serializer_class = FollowedUsersSerializer
-    permission_classes = [IsAuthenticated]
-
-    @action(detail=False, methods=["get"], url_path="my-followed-users")
-    def get_my_followed_users(self, request):
-        """Search for users that the logged in user follows."""
-        followed_users = self.queryset.filter(follower=request.user)
-        serializer = self.get_serializer(followed_users, many=True)
-        return Response(serializer.data)
-
-
-class LikedPostsViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = LikedPosts.objects.all()
-    serializer_class = LikedPostsSerializer
-    permission_classes = [IsAuthenticated]
-
-    @action(detail=False, methods=["get"], url_path="my-likes")
-    def get_my_likes(self, request):
-        """Search for posts liked by the logged in user."""
-        liked_posts = self.queryset.filter(user=request.user)
-        serializer = self.get_serializer(liked_posts, many=True)
         return Response(serializer.data)
 
 
