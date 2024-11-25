@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -7,8 +7,15 @@ from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework_simplejwt.views import TokenObtainPairView
+import os
+from django.conf import settings
+from django.http import JsonResponse
+from django.core.exceptions import SuspiciousOperation
+from django.views.decorators.csrf import csrf_exempt
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
-from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers, Comment
+from .models import Post, Hashtag, LikedUsers, FollowedHashtags, LikedPosts, FollowedUsers, Comment, CustomUser
 from .serializers import (
     PostSerializer, HashtagSerializer,
     LikedUsersSerializer, FollowedHashtagsSerializer,
@@ -19,6 +26,8 @@ from .serializers import (
 from rest_framework import status
 from rest_framework import generics
 
+from rest_framework.parsers import JSONParser
+
 # Get a custom user template
 User = get_user_model()
 
@@ -27,23 +36,15 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 # User ViewSet
-class UserViewSet(viewsets.ModelViewSet):  # Vaihdettu ReadOnly -> ModelViewSet
-# Retrieves all records of the User model from the database and stores them in the queryset variable.
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
-    # Specifies that the serializer used in that view is the `UserSerializer`,
-    # which converts instances of the `User` model.
     serializer_class = None
-    # Specifies that the view can only make requests if the user is logged in and authenticated,
-    # because the `IsAuthenticated` class checks that the user is authenticated.
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         from .serializers import UserSerializer
         return UserSerializer
 
-    # Defines a custom `GET` function for route `me`,
-    # which is not related to a single resource,
-    # but provides information about, for example, the current user.
     @action(detail=False, methods=["get"], url_path="me")
     def get_me(self, request):
         """Searching for logged-in user information."""
@@ -54,12 +55,9 @@ class UserViewSet(viewsets.ModelViewSet):  # Vaihdettu ReadOnly -> ModelViewSet
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
 
-# Defines the `UserRegistrationView` class, which inherits the `APIView` class from the Django Rest Framework
-# and allows the user registration process to be handled in the API.
+
 class UserRegistrationView(APIView):
     def post(self, request):
-        # Creates a `UserRegistrationSerializer` serializer and feeds it the `request.data` data,
-        # which contains the information needed to register the user, such as e-mail and password.
         from .serializers import UserRegistrationSerializer
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -72,13 +70,13 @@ class UserRegistrationView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Post ViewSet
+
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-time')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]  # Filter feature enabled
-    filterset_fields = ['user']  # Allows filtering based on user
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['user']
 
     def perform_create(self, serializer):
         """Allow user selection in request data."""
@@ -109,24 +107,14 @@ class HashtagViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-# LikedUsers ViewSet
 class LikedUsersViewSet(viewsets.ModelViewSet):
     queryset = LikedUsers.objects.all()
     serializer_class = LikedUsersSerializer
     permission_classes = [IsAuthenticated]
 
-    def create(self, request, *args, **kwargs):
-        """Estä saman käyttäjän tykkäyksen luominen useasti."""
-        liker = request.data.get('liker')
-        liked_user = request.data.get('liked_user')
-
-        if LikedUsers.objects.filter(liker_id=liker, liked_user_id=liked_user).exists():
-            return Response({"detail": "Olet jo tykännyt tästä käyttäjästä."}, status=status.HTTP_200_OK)
-
-        return super().create(request, *args, **kwargs)
+    # Poistettu delete_by_fields action, koska se oli päällekkäinen delete_liked_user-funktion kanssa
 
 
-# FollowedHashtags ViewSet
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
     queryset = FollowedHashtags.objects.all()
     serializer_class = FollowedHashtagsSerializer
@@ -137,7 +125,7 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        """Estä saman käyttäjän seuraamisen useasti."""
+        """Estä saman käyttäjän seuraaminen useasti."""
         user = request.data.get('user')
         hashtag = request.data.get('hashtag')
 
@@ -154,8 +142,6 @@ class FollowedHashtagsViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-
-# FollowedUsers ViewSet
 class FollowedUsersViewSet(viewsets.ModelViewSet):
     queryset = FollowedUsers.objects.all()
     serializer_class = FollowedUsersSerializer
@@ -169,7 +155,6 @@ class FollowedUsersViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-# LikedPosts ViewSet
 class LikedPostsViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LikedPosts.objects.all()
     serializer_class = LikedPostsSerializer
@@ -181,7 +166,7 @@ class LikedPostsViewSet(viewsets.ReadOnlyModelViewSet):
         liked_posts = self.queryset.filter(user=request.user)
         serializer = self.get_serializer(liked_posts, many=True)
         return Response(serializer.data)
-    
+
 
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all().order_by('-time')
@@ -190,7 +175,7 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Set the comment post and user automatically."""
-        post = Post.objects.get(id=self.request.data['post'])  # Get the post
+        post = Post.objects.get(id=self.request.data['post'])
         serializer.save(user=self.request.user, post=post)
 
     @action(detail=True, methods=["delete"], url_path="delete")
@@ -203,12 +188,89 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment.delete()
         return Response({"detail": "Kommentti poistettu onnistuneesti."}, status=status.HTTP_200_OK)
 
-# List and create comments
+
 class CommentListCreateView(generics.ListCreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
 
-# Retrieves, updates, or deletes a single comment
+
 class CommentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+
+
+@csrf_exempt
+def upload_file(request):
+    if request.method == 'POST' and request.FILES.get('file'):
+        file = request.FILES['file']
+        content_type = file.content_type
+        if content_type in ['image/gif', 'image/jpeg', 'image/png']:
+            upload_dir = settings.UPLOAD_DIR
+            file_path = os.path.join(upload_dir, file.name)
+
+            with open(file_path, 'wb') as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+
+            return JsonResponse({'message': f'File uploaded successfully: {file.name}'})
+        else:
+            raise SuspiciousOperation(f'Unsupported filetype: {content_type}')
+    else:
+        return JsonResponse({'error': 'No file provided'}, status=400)
+
+
+liker_param = openapi.Parameter(
+    'liker', openapi.IN_BODY,
+    description="ID of the user who liked",
+    type=openapi.TYPE_INTEGER
+)
+liked_user_param = openapi.Parameter(
+    'liked_user', openapi.IN_BODY,
+    description="ID of the user who was liked",
+    type=openapi.TYPE_INTEGER
+)
+
+@swagger_auto_schema(
+    method='delete',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'liker': openapi.Schema(type=openapi.TYPE_INTEGER, description='Liker ID'),
+            'liked_user': openapi.Schema(type=openapi.TYPE_INTEGER, description='Liked User ID'),
+        },
+        required=['liker', 'liked_user']
+    ),
+    responses={
+        200: 'Like removed successfully',
+        400: 'Bad Request',
+        404: 'Not Found'
+    }
+)
+@api_view(['DELETE'])
+def delete_liked_user(request):
+    try:
+        data = request.data
+        liker_id = data.get('liker')
+        liked_user_id = data.get('liked_user')
+
+        if not liker_id or not liked_user_id:
+            return Response({"error": "Both 'liker' and 'liked_user' must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            liker = CustomUser.objects.get(id=liker_id)
+            liked_user = CustomUser.objects.get(id=liked_user_id)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "One or both users not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        like_instance = LikedUsers.objects.filter(
+            Q(liker=liker) & Q(liked_user=liked_user)
+        ).first()
+
+        if like_instance:
+            like_instance.delete()
+            return Response({"message": "Like removed successfully."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Like not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    except Exception as e:
+        return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

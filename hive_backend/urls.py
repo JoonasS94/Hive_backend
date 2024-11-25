@@ -5,6 +5,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
+from . import views
+from .views import upload_file, delete_liked_user
 
 # Import views
 from .views import (
@@ -50,4 +52,10 @@ urlpatterns = [
     # Add comments-related routes
     path('comments/', CommentListCreateView.as_view(), name='comment-list-create'),
     path('comments/<int:pk>/', CommentRetrieveUpdateDestroyView.as_view(), name='comment-retrieve-update-destroy'),
+
+    # Adding pictures
+    path('api/files/upload/', upload_file, name='upload_file'),
+
+    # DELETE liked user
+    path('liked-users/delete', views.delete_liked_user, name='delete_liked_user'),
 ]
