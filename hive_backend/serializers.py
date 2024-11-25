@@ -74,9 +74,6 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['date_joined']  # Make date_joined read-only for updates
 
-    # Calculates and returns the number of users liked by the user from the LikedUsers table,
-    # where the liker field corresponds to that user.
-    # Uses Django ORM (Object-Relational Mapping) to perform search in database.
     def get_amount_of_liked_users(self, obj):
         return LikedUsers.objects.filter(liker=obj).count()
 
@@ -252,3 +249,9 @@ class FollowedUsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = FollowedUsers
         fields = ['follower', 'followed_user']
+
+
+# New DeleteLikedUserSerializer
+class DeleteLikedUserSerializer(serializers.Serializer):
+    liker = serializers.IntegerField(required=True)
+    liked_user = serializers.IntegerField(required=True)
