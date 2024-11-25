@@ -11,7 +11,7 @@ from .views import upload_file, delete_liked_user
 # Import views
 from .views import (
     UserViewSet, PostViewSet, HashtagViewSet,
-    LikedUsersViewSet, FollowedHashtagsViewSet, LikedPostsViewSet, FollowedUsersViewSet,
+    LikedUsersViewSet, FollowedHashtagsViewSet,
     UserRegistrationView, CustomTokenObtainPairView, CommentListCreateView, CommentRetrieveUpdateDestroyView
 )
 
@@ -36,8 +36,6 @@ router.register(r'posts', PostViewSet, basename="post")
 router.register(r'hashtags', HashtagViewSet, basename="hashtag")
 router.register(r'liked-users', LikedUsersViewSet, basename="liked-user")
 router.register(r'followed-hashtags', FollowedHashtagsViewSet, basename="followed-hashtag")
-router.register(r'liked-posts', LikedPostsViewSet, basename="liked-post")
-router.register(r'followed-users', FollowedUsersViewSet, basename="followed-user")
 
 # Define the URL patterns
 urlpatterns = [
