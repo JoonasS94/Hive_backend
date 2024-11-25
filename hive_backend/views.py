@@ -33,6 +33,7 @@ User = get_user_model()
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+
 # User ViewSet
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -110,7 +111,29 @@ class LikedUsersViewSet(viewsets.ModelViewSet):
     serializer_class = LikedUsersSerializer
     permission_classes = [IsAuthenticated]
 
-    # Poistettu delete_by_fields action, koska se oli päällekkäinen delete_liked_user-funktion kanssa
+    def perform_create(self, serializer):
+        """Check if the user has already liked the other user."""
+        liker = self.request.user
+        liked_user_id = self.request.data.get('liked_user')
+        
+        if LikedUsers.objects.filter(liker=liker, liked_user_id=liked_user_id).exists():
+            # Return 200 response with the message "You have already liked this user"
+            return Response({"detail": "Olet jo tykännyt tästä käyttäjästä."}, status=status.HTTP_200_OK)
+        
+        # Proceed with the creation if the like does not exist
+        serializer.save(liker=liker)
+
+    def create(self, request, *args, **kwargs):
+        """If user already liked another user, return a 200 OK response."""
+        liker = request.user
+        liked_user_id = request.data.get('liked_user')
+        
+        # If this user has already liked the other user, send a 200 OK response
+        if LikedUsers.objects.filter(liker=liker, liked_user_id=liked_user_id).exists():
+            return Response({"detail": "Olet jo tykännyt tästä käyttäjästä."}, status=status.HTTP_200_OK)
+
+        # Otherwise, proceed with the normal creation
+        return super().create(request, *args, **kwargs)
 
 
 class FollowedHashtagsViewSet(viewsets.ModelViewSet):
