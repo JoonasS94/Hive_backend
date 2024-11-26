@@ -231,7 +231,7 @@ class LikedUsersSerializer(serializers.ModelSerializer):
 class FollowedHashtagsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FollowedHashtags
-        fields = ['user', 'hashtag']
+        fields = ['id', 'user', 'hashtag']
 
 
 # Liked Posts Serializer
